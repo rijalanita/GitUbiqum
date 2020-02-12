@@ -6,7 +6,7 @@ library(ggplot2)
 library(dplyr)
 library(lattice)
 library(caret)
-8
+
 #Module 2
 #Predicting Brand Preference
 response <- read_csv("Data/CompleteResponses.csv")
@@ -14,7 +14,7 @@ summary(response)
 
 #convert [zipcode, car, elevel] into factors
 response <- response %>% 
-  mutate_at(c("elevel", "zipcode", "car"), factor)
+  mutate_at(c("elevel", "zipcode", "car", "brand"), factor)
 
 #scaling [columns salary, age] 
 
@@ -38,10 +38,33 @@ inTrain <- createDataPartition(response$brand,
 responseTrain <- response[inTrain, ]
 responseTest <- response[-inTrain, ]
 
-#?trainControl
+?trainControl
 
-# repeat 
-trainmodel <- trainControl(method = "cv",
-                           number = 10,
-                           search = grid)
+#Building the model
+
+#Defining how we would like the model  built
+fitting <- trainControl(method = "cv",
+                        number = 10,
+                        search = "grid")
+responseTrain$brand<-as.factor(responseTrain$brand)
+
+#modelLookup("rf")
+#RF Model
+#?train
+
+RF <- train(brand~., 
+            data = responseTrain,
+            method = "rf",
+            trControl = "fitting",
+            tuneGrid = "grid",
+            tuneLength = 2)
+
+
+#rforest <- train(response ~ ., data = data_set,
+method = "rf",
+ntree = 1000,
+trControl = ctrl,
+tuneGrid = data.frame(mtry = 6))
+
+str(responseTrain)
 
