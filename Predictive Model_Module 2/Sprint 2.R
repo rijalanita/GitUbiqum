@@ -80,11 +80,16 @@ summary(RFmodel)
 rfresults <- predict(RFmodel, incomplete)
 rfresults
 
+#testing training with test values
+rftest <- predict(RFmodel, proctest)
+
 #accuracy of RF model
 ?postResample
-postResample(pred = rfresults, obs = proctest$brand)
-accuracy_RF<-confusionMatrix(RFmodel, newdata = proctest$brand)
+accuracy_RF<- caret::confusionMatrix(data =rftest , reference = proctest$brand)
 accuracy_RF
+
+#alternative accuracy function
+postResample(pred = rftest, obs = proctest$brand)
 
 set.seed(108)
 C5Model <- train(x = proctrain[,numerics],
@@ -98,9 +103,17 @@ c5results <- predict(C5Model, incomplete)
 c5results
 
 #accuracy of c5.0 model
-postResample(pred = c5results, obs = proctest$brand)
-c5_accuracy <- confusionMatrix(C5Model, newdata= proctest)
+
+c5test <- predict(C5Model, proctest)
+c5test
+
+summary(c5results)
+
+#accuracy of c5model
+c5_accuracy <- confusionMatrix(data = c5test, reference = proctest$brand)
 c5_accuracy
+#alternative function for accuracy
+postResample(pred = c5test, obs = proctest$brand)
 
 #comparing the 2 different model performances
 remodel<- resamples(list(rf=RFmodel, c5=C5Model))
@@ -108,9 +121,13 @@ summary(remodel)
 
 #Report for predictions using c50 Model
 
-mypredictions <- cbind(incomplete, "predictions" = c5results)
-mypredictions <- within(incomplete, rm(brand))
+clean <- within(incomplete, rm(brand))
+mypredictions <- cbind(clean, "brand" = c5results)
 mypredictions
 
-visual<-ggplot(c5table, aes(x=brand, y =, fill=brand))
-visual+geom_bar()
+total <- rbind(complete, mypredictions)
+names(total)
+summary(total)
+
+
+write.csv(total, "FinalCSV")
