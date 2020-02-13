@@ -4,3 +4,7 @@
 .Ruserdata
 .DS_Store
 
+git rm --cached <.DS_Store>
+git rm --cached -r <GitUbiqum>
+git commit -m "Removed folder from repository"
+git push origin master
