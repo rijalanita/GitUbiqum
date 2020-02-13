@@ -53,6 +53,7 @@ head(ppvalues)
 #Use the preprocess method to scale, center the training and testing data sets
 proctrain <- predict(ppvalues,completeTrain)
 proctest <- predict(ppvalues, completeTest)
+
 incomplete <- predict(ppvalues, incomplete)
 incomplete
 View(proctrain)
