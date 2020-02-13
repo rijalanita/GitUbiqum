@@ -56,28 +56,23 @@ proctest <- predict(ppvalues, completeTest)
 
 incomplete <- predict(ppvalues, incomplete)
 incomplete
-View(proctrain)
-?trainControl
 
 #Building the model
 
-#Defining how we would like the model  built
 fitting <- trainControl(method = "cv",
                         number = 10,
                         search = "grid",
-                        classProbs = TRUE,
-                        summaryFunction = twoClassSummary,
+                        #classProbs = TRUE,
+                        #summaryFunction = twoClassSummary,
                         savePredictions = "final")
-str(proctrain)
-#Random Forest Model
-#?train
 
 set.seed(108)
 RFmodel <- train(brand~salary+age, 
             data = proctrain,
             method = "ranger",
             trControl = fitting,
-            tuneLength = 2, metric = "ROC")
+            tuneLength = 2)
+            #metric = "ROC")
 RFmodel
 summary(RFmodel)
 
@@ -85,8 +80,11 @@ summary(RFmodel)
 rfresults <- predict(RFmodel, incomplete)
 rfresults
 
-postResample(rfresults, proctest$brand)
-confusionMatrix(rfresults, proctest$brand)
+#accuracy of RF model
+?postResample
+postResample(pred = rfresults, obs = proctest$brand)
+accuracy_RF<-confusionMatrix(RFmodel, newdata = proctest$brand)
+accuracy_RF
 
 set.seed(108)
 C5Model <- train(x = proctrain[,numerics],
@@ -94,9 +92,25 @@ C5Model <- train(x = proctrain[,numerics],
                  method = "C5.0",
                  trControl = fitting,
                  tunelength = 2)
+C5Model
 
 c5results <- predict(C5Model, incomplete)
+c5results
 
-?postResample
-postResample(c5results, proctest$brand)
+#accuracy of c5.0 model
+postResample(pred = c5results, obs = proctest$brand)
+c5_accuracy <- confusionMatrix(C5Model, newdata= proctest)
+c5_accuracy
 
+#comparing the 2 different model performances
+remodel<- resamples(list(rf=RFmodel, c5=C5Model))
+summary(remodel)
+
+#Report for predictions using c50 Model
+
+mypredictions <- cbind(incomplete, "predictions" = c5results)
+mypredictions <- within(incomplete, rm(brand))
+mypredictions
+
+visual<-ggplot(c5table, aes(x=brand, y =, fill=brand))
+visual+geom_bar()
