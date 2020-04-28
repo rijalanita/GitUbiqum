@@ -1,0 +1,251 @@
+---
+title: "Going Beyond Brand Preference to Build Strategic Partnerships"
+author: "Anita Rijal"
+date: "2/13/2020"
+output: html_document
+toc: TRUE 
+toc_float: TRUE
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+![alt text here](/Users/arijal/Desktop/Ubiqum/GitUbiqum/Images/partnership.jpg)
+
+
+
+
+## Table of contents
+
+- [More Customers Prefer Elago](#BrandPartner)
+- [Results of the c5.0 Model](#Prediction)
+- [Comparing Accuracy of the Two Predictive Models](#Accuracy)
+
+  [i. Random Forest Classifier](#RFmodel)  
+  [ii. C5.0 Classifier](#C50model) 
+    
+- [What do the predictions mean for Blackwell?](#Conclusions)
+
+```{r echo=FALSE, include=FALSE}
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(lattice)
+library(caret)
+library(tidyr)
+
+response<-read.csv2("Data/surveyBelkinElago.csv")
+response
+
+incomplete <- subset(response, brand == " ")
+
+complete <- subset(response, brand !=" ")
+
+complete <- complete %>% 
+  mutate_at(c("elevel", "zipcode", "car", "brand"), factor)
+
+
+#splitting the data
+set.seed(108)
+inTrain <- createDataPartition(complete$brand, 
+                               times = 1,
+                               p = 0.7,
+                               list = FALSE)
+
+#?createDataPartition
+
+completeTrain <- complete[inTrain, ]
+completeTest <- complete[-inTrain, ]
+
+#scaling [columns salary, age] 
+
+#?preProcess
+#choosing features salary and age as predictors
+
+numerics <- c("salary" , "age")
+
+#run the preprocess function on  salary and age features to scale the data
+ppvalues <- preProcess(complete[, numerics], 
+                       method = c("center", "scale"),
+                       verbose = FALSE) 
+
+head(ppvalues)
+#NOTE: preProcess estimates mean and sd of the preprocess values but doesn't actually do the transformation
+
+#Use the preprocess method to scale, center the training and testing data sets
+proctrain <- predict(ppvalues,completeTrain)
+proctest <- predict(ppvalues, completeTest)
+
+incomplete <- predict(ppvalues, incomplete)
+incomplete
+
+#Building the model
+
+fitting <- trainControl(method = "cv",
+                        number = 10,
+                        search = "grid",
+                        #classProbs = TRUE,
+                        #summaryFunction = twoClassSummary,
+                        savePredictions = "final")
+
+set.seed(108)
+RFmodel <- train(brand~salary+age, 
+            data = proctrain,
+            method = "ranger",
+            trControl = fitting,
+            tuneLength = 2)
+            #metric = "ROC")
+RFmodel
+summary(RFmodel)
+
+#?predict
+rfresults <- predict(RFmodel, incomplete)
+rfresults
+
+#testing training with test values
+rftest <- predict(RFmodel, proctest)
+
+#accuracy of RF model
+?postResample
+accuracy_RF<- caret::confusionMatrix(data =rftest , reference = proctest$brand)
+accuracy_RF
+
+#alternative accuracy function
+postResample(pred = rftest, obs = proctest$brand)
+
+set.seed(108)
+C5Model <- train(x = proctrain[,numerics],
+                 y = proctrain$brand,
+                 method = "C5.0",
+                 trControl = fitting,
+                 tunelength = 2)
+C5Model
+
+c5results <- predict(C5Model, incomplete)
+c5results
+
+#accuracy of c5.0 model
+
+c5test <- predict(C5Model, proctest)
+c5test
+
+#accuracy of c5model
+c5_accuracy <- confusionMatrix(C5Model, newdata= proctest)
+c5_accuracy
+#alternative function for accuracy
+postResample(pred = c5test, obs = proctest$brand)
+
+#comparing the 2 different model performances
+remodel<- resamples(list(rf=RFmodel, c5=C5Model))
+summary(remodel)
+
+clean <- within(incomplete, rm(brand))
+mypredictions <- cbind(clean, "brand" = c5results)
+mypredictions
+
+total <- rbind(complete, mypredictions)
+names(total)
+summary(total)
+```
+
+### More Customers Prefer Elago <a name="BrandPartner"></a>
+```{r}
+visual<-ggplot(total, aes(x=brand, fill=brand))+
+  labs(title = "Survey finds Blackwell Customers Prefer Elago!")
+visual+geom_bar()+
+  scale_y_continuous(breaks = seq(1000,9000,1000))
+```
+
+### Our Model Predicts... <a name="Predictions"></a>
+
+
+According to our prediction model findings, of the 5000 customers with missing bradn preference data:
+* 2777 were predicted to prefer Belkin 
+* 2223 were predicted to prefer Elago
+
+#### The results are summarised in the table below:
+```{r}
+clean <- within(incomplete, rm(brand))
+mypredictions <- cbind(clean, "brand" = c5results)
+summary(mypredictions)
+```
+
+**By combining the above brand predictions with the completed brand responses, in total our customer survey responses are summarised below:**
+```{r}
+clean <- within(incomplete, rm(brand))
+mypredictions <- cbind(clean, "brand" = c5results)
+
+total <- rbind(complete, mypredictions)
+summary(total)
+```
+
+### Should We Trust the Model's Predictions? <a name="Accuracy"></a>
+
+Based on our initial exploratory data analysis looking at the completed survey responses, we chose two predictors for our models:
+
+*1) Age*
+*2) Salary*
+
+Furthermore, we saw no strong trends in brand preference with the other factors (credit, region, education level etc). To improve the performance of the classifier, our model did not include other customer attributes to predict brand preference.
+
+
+Specifically, the following observations had been made from an initial data analysis:
+
+*Below is a comparison of the accuracy for both the c5.0 Model and the Random Forest Models:*
+```{r}
+remodel<- resamples(list(rf=RFmodel, c5=C5Model))
+summary(remodel)
+```
+
+**Summary of the Confusion Matrix for the Random Forest Model** <a name="RFmodel"></a>
+
+```{r}
+accuracy_RF<- caret::confusionMatrix(data =rftest , reference = proctest$brand)
+accuracy_RF
+
+#alternative accuracy function
+postResample(pred = rftest, obs = proctest$brand)
+```
+
+**Summary of the Confusion Matrix for the C5.0 Model** <a name="C50model"></a>
+
+```{r}
+
+#accuracy of c5model
+c5_accuracy <- confusionMatrix(C5Model, newdata= proctest)
+c5_accuracy
+#alternative function for accuracy
+postResample(pred = c5test, obs = proctest$brand)
+
+```
+
+### What do the predictions mean for Blackwell? <a name="Conclusions"></a>
+
+* 1. Although the model predicts more Blackwell customers prefer the brand Elago, the numbers are very close. Belkin trails behind Elago by only 142 customers (i.e. only by 0.95% of the total survey respondents).
+
+* 2. Given the nearly 50-50 divide in brand preference, Blackwell might consider elements other than just brand preference in seeking a strategic partnership.
+
+* 3. Some other considerations might include:
+
+      **Is Blackwell targetting a specific customer segment to boost sales?**
+      
+      * If Blackwell's core customer base is a younger demographic, the team might be better off pursuing a relationship with Elago. Our exploratory data analysis shows
+      
+      * Customers who were 55 years and younger prefer Elago products.
+            * Median age of customers who prefered Elago was ~ 40 years.
+            * Median age for customers who prefered Belkin was ~ 60  years.
+            
+        **What are Blackwell's top selling products?**
+        
+        * Rather than  choosing either Elago or Belkin, Blackwell might decide to pursue a strategic partnership based on product. Working with Elago on prodcuts that sell better with younger demographic, and working with Belkin on products that sell better with an older demographic.
+          
+        **High end vs low end products?**
+        
+         * We know from our exploratory data analaysis that:
+         
+         * Customers who earned between 65,000 to 110,000 were more likely to prefer Belkin (median salary was 85,000).
+         * Customers who earned between 45,000 to 125,000 were more likely to prefer Elago (the median salary was 80,000).
+        
+        * Blackwell might want to consider ordering more affordable products from Elago while pursuing a partnership with Belkin on more premium products. 
+        
+        
